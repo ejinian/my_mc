@@ -3,6 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class World : MonoBehaviour {
+    public int seed;
+    public BiomeAttributes biome;
+    
     public Transform player;
     public Vector3 spawnPos;
     public Material material;
@@ -16,6 +19,8 @@ public class World : MonoBehaviour {
 
     private void Start()
     {
+        // initialize random state
+        Random.InitState(seed);
         spawnPos = new Vector3((VoxelData.WorldSizeInChunks * VoxelData.ChunkWidth) / 2f, VoxelData.ChunkHeight + 2f,
             (VoxelData.WorldSizeInChunks * VoxelData.ChunkWidth) / 2f);
         GenerateWorld();
@@ -89,17 +94,64 @@ public class World : MonoBehaviour {
 
     // mc world generation algorithm
     public byte GetVoxel(Vector3 pos)
-    {
+    { // 0air, 1stone, 2bedrock, 3grass, 4furnace, 5sand, 6dirt
+        int yPos = Mathf.FloorToInt(pos.y);
         if (!isVoxelInWorld(pos))
         {
             return 0;
         }
-        if (pos.y < 1) return 2;
-        else if (pos.y == VoxelData.ChunkHeight - 1) return 3;
-        else
+        if (yPos == 0)
         {
-            return 1;
+            return 2; // bedrock
         }
+        int terrainHeight = Mathf.FloorToInt(biome.terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 
+            0, biome.terrainScale)) + biome.solidGroundHeight; // vec3 in vid
+        byte voxelValue = 0;
+        if (yPos == terrainHeight)
+        {
+            voxelValue = 3;
+        }
+        else if (yPos < terrainHeight && yPos > terrainHeight - 4)
+        {
+            voxelValue = 6;
+        }else if (yPos > terrainHeight)
+        {
+            return 0;
+        }else
+        {
+            voxelValue = 1;
+        }
+        if (voxelValue == 1)
+        {
+            foreach(Lode lode in biome.lodes)
+            {
+                if (yPos >lode.minHeight && yPos < lode.maxHeight)
+                {
+                    if (Noise.Get3DPerlin(pos, lode.noiseOffset, lode.scale, lode.threshold))
+                    { // override block based on lode configuration
+                        voxelValue = lode.blockID;
+                    }
+                }
+            }
+        }
+        return voxelValue;
+
+        //if (pos.y < 1) return 2;
+        //// above stone
+        //else if (pos.y == VoxelData.ChunkHeight - 1) {
+        //    float tempNoise = Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, 0.1f);
+        //    if (tempNoise < 0.5f)
+        //    {
+        //        return 3;
+        //    }else
+        //    {
+        //        return 5;
+        //    }
+        //}
+        //else
+        //{
+        //    return 1;
+        //}
     }
 
     void CreateNewChunk(int x, int z)
