@@ -2,9 +2,11 @@
 using System.Collections;
 using System.Collections.Generic;
 
-public class Chunk : MonoBehaviour {
-    public MeshRenderer meshRenderer;
-    public MeshFilter meshFilter;
+public class Chunk {
+    public ChunkCoord coord;
+    GameObject chunkObj;
+    MeshRenderer meshRenderer;
+    MeshFilter meshFilter;
     int i = 0;
     List<Vector3> vertices = new List<Vector3>();
     List<int> triangles = new List<int>();
@@ -12,9 +14,18 @@ public class Chunk : MonoBehaviour {
 
     byte[,,] voxelMap = new byte[VoxelData.ChunkWidth, VoxelData.ChunkHeight, VoxelData.ChunkWidth];
     World world;
-    void Start () {
+    public Chunk(ChunkCoord _coord, World _world)
+    {
+        coord = _coord;
+        world = _world;
 
-        world = GameObject.Find("World").GetComponent<World>();
+        chunkObj = new GameObject();
+        meshFilter = chunkObj.AddComponent<MeshFilter>();
+        meshRenderer = chunkObj.AddComponent<MeshRenderer>();
+        meshRenderer.material = world.material;
+        chunkObj.transform.SetParent(world.transform);
+        chunkObj.transform.position = new Vector3(coord.x * VoxelData.ChunkWidth, 0f, coord.z * VoxelData.ChunkWidth);
+        chunkObj.name = "Chunk " + coord.x + ", " + coord.z;
 
         PopulateVoxelMap();
         // creating chunk
@@ -22,7 +33,8 @@ public class Chunk : MonoBehaviour {
         {
             for (int x = 0; x < VoxelData.ChunkWidth; x += 1)
             {
-                for (int z = 0; z < VoxelData.ChunkWidth; z += 1) {
+                for (int z = 0; z < VoxelData.ChunkWidth; z += 1)
+                {
                     AddVoxelData(new Vector3(x, y, z));
                 }
             }
@@ -34,7 +46,7 @@ public class Chunk : MonoBehaviour {
         mesh.uv = uvs.ToArray();
         mesh.RecalculateNormals();
         meshFilter.mesh = mesh;
-	}
+    }
 
     void PopulateVoxelMap()
     {
@@ -44,16 +56,26 @@ public class Chunk : MonoBehaviour {
             {
                 for (int z = 0; z < VoxelData.ChunkWidth; z += 1)
                 {
-                    // stone[0], bedrock[1], grass[2], furnace[3]
-                    if (y < 1) voxelMap[x, y, z] = 1;
-                    else if (y == VoxelData.ChunkHeight - 1) voxelMap[x, y, z] = 2;
-                    else
-                    {
-                        voxelMap[x, y, z] = 0;
-                    }
+                    voxelMap[x, y, z] = world.GetVoxel(new Vector3(x, y, z) + position);
                 }
             }
         }
+    }
+
+    public bool isActive
+    {
+        get { return chunkObj.activeSelf; }
+        set { chunkObj.SetActive(value); }
+    }
+
+    public Vector3 position {
+        get { return chunkObj.transform.position; }
+    }
+
+    bool IsVoxelInChunk(int x, int y, int z)
+    {
+        return !(x < 0 || x > VoxelData.ChunkWidth - 1 || y < 0 || y > VoxelData.ChunkHeight - 1 || z < 0
+            || z > VoxelData.ChunkWidth - 1);
     }
 
     bool CheckVoxel(Vector3 pos)
@@ -62,9 +84,9 @@ public class Chunk : MonoBehaviour {
         int y = Mathf.FloorToInt(pos.y);
         int z = Mathf.FloorToInt(pos.z);
         // prevent index out of range
-        if (x < 0 || x > VoxelData.ChunkWidth - 1 || y < 0 || y > VoxelData.ChunkHeight - 1 || z < 0
-            || z > VoxelData.ChunkWidth - 1){
-            return false;
+        if (!IsVoxelInChunk(x, y, z)){
+            // prevent chunks from rendering inside each other
+            return world.blocktypes[world.GetVoxel(pos + position)].isSolid;
         }
         return world.blocktypes[voxelMap[x, y, z]].isSolid;
     }
@@ -105,5 +127,27 @@ public class Chunk : MonoBehaviour {
         uvs.Add(new Vector2(x + VoxelData.NormalizedBlockTextureSize, y));
         uvs.Add(new Vector2(x + VoxelData.NormalizedBlockTextureSize, y + VoxelData.NormalizedBlockTextureSize));
 
+    }
+}
+
+public class ChunkCoord {
+    public int x; // position of chunk we are drawing in the chunk map, not world space
+    public int z;
+    public ChunkCoord(int _x, int _z){
+        x = _x;
+        z = _z;
+    }
+    public bool Equals(ChunkCoord other)
+    {
+        if (other == null)
+        {
+            return false;
+        } else if (other.x == x && other.z == z)
+        {
+            return true;
+        }else
+        {
+            return false;
+        }
     }
 }
