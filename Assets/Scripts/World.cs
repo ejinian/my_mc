@@ -10,6 +10,8 @@ public class World : MonoBehaviour
     public Transform player;
     public Vector3 spawnPos;
     public Material material;
+    public Material transparentMaterial;
+    
     public BlockType[] blocktypes;
     Chunk[,] chunks = new Chunk[VoxelData.WorldSizeInChunks, VoxelData.WorldSizeInChunks];
     // keep track of active chunks to delete unnecessary chunks
@@ -149,9 +151,23 @@ public class World : MonoBehaviour
         return blocktypes[GetVoxel(pos)].isSolid;
     }
 
+    public bool CheckIfVoxelTransparent(Vector3 pos)
+    {
+        ChunkCoord thisChunk = new ChunkCoord(pos);
+        if (!isChunkInWorld(thisChunk) || pos.y < 0 || pos.y > VoxelData.ChunkHeight)
+        {
+            return false;
+        }
+        if (chunks[thisChunk.x, thisChunk.z] != null && chunks[thisChunk.x, thisChunk.z].isVoxelMapPopulated)
+        {
+            return blocktypes[chunks[thisChunk.x, thisChunk.z].GetVoxelFromGlobalVector3(pos)].isTransparent;
+        }
+        return blocktypes[GetVoxel(pos)].isTransparent;
+    }    
+
     // mc world generation algorithm
     public byte GetVoxel(Vector3 pos)
-    { // 0air, 1stone, 2bedrock, 3grass, 4furnace, 5sand, 6dirt
+    {
         int yPos = Mathf.FloorToInt(pos.y);
         if (!isVoxelInWorld(pos))
         {
@@ -159,7 +175,7 @@ public class World : MonoBehaviour
         }
         if (yPos == 0)
         {
-            return 2; // bedrock
+            return 0; // bedrock, for now it's just stone
         }
         int terrainHeight = Mathf.FloorToInt(biome.terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z),
             0, biome.terrainScale)) + biome.solidGroundHeight; // vec3 in vid
@@ -237,6 +253,7 @@ public class BlockType
 {
     public string blockName;
     public bool isSolid;
+    public bool isTransparent;
     public Sprite icon;
 
     [Header("Texture values")]
