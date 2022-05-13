@@ -68,13 +68,13 @@ public class UIItemSlot : MonoBehaviour
     }
     private void OnDestroy()
     {
-        //if (isLinked)
-        //{
-        //    itemSlot.unLinkUISlot();
-        //}
-        if (itemSlot != null){
+        if (isLinked)
+        {
             itemSlot.unLinkUISlot();
         }
+        //if (itemSlot != null){
+        //    itemSlot.unLinkUISlot();
+        //}
     }
 }
 public class ItemSlot
