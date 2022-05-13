@@ -26,15 +26,35 @@ public static class Structure
             }
         }
         //placing a cube of leaves on top of the trunk
-        for (int x = -3; x <= 3; x++)
+        if (!isBig)
         {
-            for (int y = -3; y <= 3; y++)
+            for (int x = -3; x <= 3; x++)
             {
-                for (int z = -3; z <= 3; z++)
+                for (int y = -3; y <= 3; y++)
                 {
-                    if (Mathf.Abs(x) + Mathf.Abs(y) + Mathf.Abs(z) <= 3)
+                    for (int z = -3; z <= 3; z++)
                     {
-                        queue.Enqueue(new VoxelMod(new Vector3(position.x + x, position.y + height + y, position.z + z), 10));
+                        if (Mathf.Abs(x) + Mathf.Abs(y) + Mathf.Abs(z) <= 3)
+                        {
+                            queue.Enqueue(new VoxelMod(new Vector3(position.x + x, position.y + height + y, position.z + z), 10));
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            // if large tree
+            for (int x = -5; x <= 5; x++)
+            {
+                for (int y = -5; y <= 5; y++)
+                {
+                    for (int z = -5; z <= 5; z++)
+                    {
+                        if (Mathf.Abs(x) + Mathf.Abs(y) + Mathf.Abs(z) <= 5)
+                        {
+                            queue.Enqueue(new VoxelMod(new Vector3(position.x + x, position.y + height + y, position.z + z), 10));
+                        }
                     }
                 }
             }
