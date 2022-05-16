@@ -81,6 +81,7 @@ public class ItemSlot
 {
     public ItemStack stack;
     private UIItemSlot uiItemSlot = null;
+    public bool isCreative;
 
     public ItemSlot(UIItemSlot _uiItemSlot)
     {
@@ -130,6 +131,15 @@ public class ItemSlot
             EmptySlot();
             return amt;
         }
+    }
+    public ItemStack TakeAll(){
+        ItemStack _stack = new ItemStack(stack.id, stack.amount);
+        EmptySlot();
+        return _stack;
+    }
+    public void InsertStack(ItemStack _stack){
+        stack = _stack;
+        uiItemSlot.UpdateSlot();
     }
     public bool HasItem
     {
