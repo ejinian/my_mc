@@ -45,6 +45,10 @@ public static class Structure
                     }
                 }
             }
+            // place the trunk in the middle of the cube
+            for (int i = 1; i < 4; i++) {
+                queue.Enqueue(new VoxelMod(new Vector3(position.x, position.y + height - i, position.z), 9));
+            }
         }
         else
         {

@@ -60,8 +60,8 @@ public class Player : MonoBehaviour
             {
                 Jump();
             }
-            transform.Rotate(Vector3.up * mouseHorizontal);
-            cam.Rotate(Vector3.right * -mouseVertical);
+            transform.Rotate(Vector3.up * mouseHorizontal * world.settings.mouseSensitivity);
+            cam.Rotate(Vector3.right * -mouseVertical * world.settings.mouseSensitivity);
             transform.Translate(velocity, Space.World);
         }
         //if (!world.inUI) ZA WARUDO EFFECT
@@ -192,8 +192,22 @@ public class Player : MonoBehaviour
             transform.position.z + playerWidth)))
         {
             // there is a solid voxel under the player
-            isGrounded = true;
-            return 0;
+            // check if player is on ground
+            if (world.CheckForVoxel(new Vector3(transform.position.x, transform.position.y + downSpeed,
+                transform.position.z)))
+            {
+                // player is on ground
+                isGrounded = true;
+                return 0;
+            }
+            else
+            {
+                // player is not on ground
+                isGrounded = false;
+                return downSpeed;
+            }
+            //isGrounded = true;
+            //return 0;
         }
         else
         {
