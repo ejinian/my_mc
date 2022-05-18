@@ -9,7 +9,7 @@ public class World : MonoBehaviour
     public int seed;
     public BiomeAttributes biome;
     
-    [Range(0.95f, 0f)]
+    [Range(0f, 1f)]
     public float globalLightLevel;
     public Color day;
     public Color night;
@@ -68,7 +68,7 @@ public class World : MonoBehaviour
     {
         playerChunkCoord = GetChunkCoordFromVector3(player.position);
         Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
-        Camera.main.backgroundColor = Color.Lerp(day, night, globalLightLevel);
+        Camera.main.backgroundColor = Color.Lerp(night, day, globalLightLevel);
         // this removes the block placing bug but does not allow for infinite chunk generation
         //if (playerChunkCoord != playerLastChunkCoord)
         //{

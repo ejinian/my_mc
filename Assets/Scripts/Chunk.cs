@@ -90,6 +90,7 @@ public class Chunk
 
     void CalculateLight()
     {
+        Queue<Vector3Int> litVoxels = new Queue<Vector3Int>();
         for (int x = 0; x < VoxelData.ChunkWidth; x++)
         {
             for (int z = 0; z < VoxelData.ChunkWidth; z++)
@@ -104,6 +105,32 @@ public class Chunk
                     }
                     thisVoxel.globalLightPercent = lightRay;
                     voxelMap[x, y, z] = thisVoxel;
+                    if (lightRay > VoxelData.lightFalloff)
+                    {
+                        litVoxels.Enqueue(new Vector3Int(x, y, z));
+                    }
+                }
+            }
+        }
+        while (litVoxels.Count > 0)
+        {
+            Vector3Int v = litVoxels.Dequeue();
+            for (int p = 0; p < 6; p++)
+            {
+                Vector3 currentVoxel = v + VoxelData.faceChecks[p];
+                Vector3Int neighbor = new Vector3Int((int)currentVoxel.x, (int)currentVoxel.y, (int)currentVoxel.z);
+                if (IsVoxelInChunk(neighbor.x, neighbor.y, neighbor.z))
+                {
+                    if (voxelMap[neighbor.x, neighbor.y, neighbor.z].globalLightPercent 
+                        < voxelMap[v.x, v.y, v.z].globalLightPercent - VoxelData.lightFalloff)
+                    {
+                        voxelMap[neighbor.x, neighbor.y, neighbor.z].globalLightPercent =
+                            voxelMap[v.x, v.y, v.z].globalLightPercent - VoxelData.lightFalloff;
+                        if (voxelMap[neighbor.x, neighbor.y, neighbor.z].globalLightPercent > VoxelData.lightFalloff)
+                        {
+                            litVoxels.Enqueue(neighbor);
+                        }
+                    }
                 }
             }
         }
