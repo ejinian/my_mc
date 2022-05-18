@@ -5,13 +5,20 @@ using System.Threading;
 
 public class World : MonoBehaviour
 {
+    [Header("World Generation Values")]
     public int seed;
     public BiomeAttributes biome;
+    
+    [Range(0.95f, 0f)]
+    public float globalLightLevel;
+    public Color day;
+    public Color night;
 
     public Transform player;
     public Vector3 spawnPos;
     public Material material;
     public Material transparentMaterial;
+    
     [Header("Performance")]
     public bool enableThreading;
 
@@ -42,7 +49,8 @@ public class World : MonoBehaviour
     {
         // initialize random state
         Random.InitState(seed);
-
+        Shader.SetGlobalFloat("minGlobalLightLevel", VoxelData.minLightLevel);
+        Shader.SetGlobalFloat("maxGlobalLightLevel", VoxelData.maxLightLevel);
         if (enableThreading)
         {
             ChunkUpdateThread = new Thread(new ThreadStart(ThreadedUpdate));
@@ -59,6 +67,25 @@ public class World : MonoBehaviour
     private void Update()
     {
         playerChunkCoord = GetChunkCoordFromVector3(player.position);
+        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
+        Camera.main.backgroundColor = Color.Lerp(day, night, globalLightLevel);
+        // this removes the block placing bug but does not allow for infinite chunk generation
+        //if (playerChunkCoord != playerLastChunkCoord)
+        //{
+        //    // if the player has moved to a new chunk
+        //    // add the new chunk to the active chunks list
+        //    // and remove the old chunk from the active chunks list
+        //    if (activeChunks.Contains(playerChunkCoord))
+        //    {
+        //        activeChunks.Remove(playerLastChunkCoord);
+        //    }
+        //    else
+        //    {
+        //        activeChunks.Add(playerChunkCoord);
+        //    }
+        //    // set the player's last chunk to the new chunk
+        //    playerLastChunkCoord = playerChunkCoord;
+        //}
         // generate new chunks as the player moves
         if (!playerChunkCoord.Equals(playerLastChunkCoord))
         {
@@ -250,23 +277,23 @@ public class World : MonoBehaviour
         }
         if (chunks[thisChunk.x, thisChunk.z] != null && chunks[thisChunk.x, thisChunk.z].isEditable)
         {
-            return blocktypes[chunks[thisChunk.x, thisChunk.z].GetVoxelFromGlobalVector3(pos)].isSolid;
+            return blocktypes[chunks[thisChunk.x, thisChunk.z].GetVoxelFromGlobalVector3(pos).id].isSolid;
         }
         return blocktypes[GetVoxel(pos)].isSolid;
     }
 
-    public bool CheckIfVoxelTransparent(Vector3 pos)
+    public VoxelState GetVoxelState(Vector3 pos)
     {
         ChunkCoord thisChunk = new ChunkCoord(pos);
         if (!isChunkInWorld(thisChunk) || pos.y < 0 || pos.y > VoxelData.ChunkHeight)
         {
-            return false;
+            return null;
         }
         if (chunks[thisChunk.x, thisChunk.z] != null && chunks[thisChunk.x, thisChunk.z].isEditable)
         {
-            return blocktypes[chunks[thisChunk.x, thisChunk.z].GetVoxelFromGlobalVector3(pos)].isTransparent;
+            return chunks[thisChunk.x, thisChunk.z].GetVoxelFromGlobalVector3(pos);
         }
-        return blocktypes[GetVoxel(pos)].isTransparent;
+        return new VoxelState(GetVoxel(pos));
     }
 
     public bool inUI
@@ -375,7 +402,8 @@ public class BlockType
 {
     public string blockName;
     public bool isSolid;
-    public bool isTransparent;
+    public bool renderNeighborFaces;
+    public float transparency;
     public Sprite icon;
 
     [Header("Texture values")]

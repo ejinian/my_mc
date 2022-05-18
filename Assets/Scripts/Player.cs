@@ -141,6 +141,8 @@ public class Player : MonoBehaviour
             if (Input.GetMouseButtonDown(0))
             {
                 world.GetChunkFromVector3(highlightBlock.position).EditVoxel(highlightBlock.position, 0);
+                // play a sound
+                
             }
             // place block
             if (Input.GetMouseButtonDown(1))

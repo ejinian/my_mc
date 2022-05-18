@@ -19,6 +19,10 @@ public static class Structure
                 queue.Enqueue(new VoxelMod(new Vector3(position.x + 1, position.y + i, position.z), 9));
                 queue.Enqueue(new VoxelMod(new Vector3(position.x, position.y + i, position.z + 1), 9));
                 queue.Enqueue(new VoxelMod(new Vector3(position.x + 1, position.y + i, position.z + 1), 9));
+                queue.Enqueue(new VoxelMod(new Vector3(position.x, position.y + i - 1, position.z), 9));
+                queue.Enqueue(new VoxelMod(new Vector3(position.x + 1, position.y + i - 1, position.z), 9));
+                queue.Enqueue(new VoxelMod(new Vector3(position.x, position.y + i - 1, position.z + 1), 9));
+                queue.Enqueue(new VoxelMod(new Vector3(position.x + 1, position.y + i - 1, position.z + 1), 9));
             }
             else
             {
