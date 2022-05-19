@@ -8,7 +8,7 @@ public class World : MonoBehaviour
 {
     public Settings settings;
     [Header("World Generation Values")]
-    public BiomeAttributes biome;
+    public BiomeAttributes[] biomes;
     
     [Range(0f, 1f)]
     public float globalLightLevel;
@@ -61,6 +61,7 @@ public class World : MonoBehaviour
             ChunkUpdateThread = new Thread(new ThreadStart(ThreadedUpdate));
             ChunkUpdateThread.Start();
         }
+        SetGlobalLightValue();
         spawnPos = new Vector3((VoxelData.WorldSizeInChunks * VoxelData.ChunkWidth) / 2f, VoxelData.ChunkHeight - 50f,
             (VoxelData.WorldSizeInChunks * VoxelData.ChunkWidth) / 2f);
         GenerateWorld();
@@ -69,11 +70,16 @@ public class World : MonoBehaviour
         
     }
 
+    public void SetGlobalLightValue()
+    {
+        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
+        Camera.main.backgroundColor = Color.Lerp(night, day, globalLightLevel);
+    }
+
     private void Update()
     {
         playerChunkCoord = GetChunkCoordFromVector3(player.position);
-        Shader.SetGlobalFloat("GlobalLightLevel", globalLightLevel);
-        Camera.main.backgroundColor = Color.Lerp(night, day, globalLightLevel);
+
         // this removes the block placing bug but does not allow for infinite chunk generation
         //if (playerChunkCoord != playerLastChunkCoord)
         //{
@@ -237,22 +243,23 @@ public class World : MonoBehaviour
             for (int z = coord.z - settings.viewDistance;
                 z < coord.z + settings.viewDistance; z += 1)
             {
-                if (isChunkInWorld(new ChunkCoord(x, z)))
+                ChunkCoord thisChunkCoord = new ChunkCoord(x, z);
+                if (isChunkInWorld(thisChunkCoord))
                 {
                     if (chunks[x, z] == null)
                     {
-                        chunks[x, z] = new Chunk(new ChunkCoord(x, z), this);
-                        chunksToCreate.Add(new ChunkCoord(x, z));
+                        chunks[x, z] = new Chunk(thisChunkCoord, this);
+                        chunksToCreate.Add(thisChunkCoord);
                     }
                     else if (!chunks[x, z].isActive)
                     {
                         chunks[x, z].isActive = true;
                     }
-                    activeChunks.Add(new ChunkCoord(x, z));
+                    activeChunks.Add(thisChunkCoord);
                 }
                 for (int i = 0; i < previouslyActive.Count; i += 1)
                 {
-                    if (previouslyActive[i].Equals(new ChunkCoord(x, z)))
+                    if (previouslyActive[i].Equals(thisChunkCoord))
                     {
                         previouslyActive.RemoveAt(i);
                     }
@@ -310,12 +317,14 @@ public class World : MonoBehaviour
             if (_inUI)
             {
                 Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
                 creativeInventoryWindow.SetActive(true);
                 cursorSlot.SetActive(true);
             }
             else
             {
                 Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
                 creativeInventoryWindow.SetActive(false);
                 cursorSlot.SetActive(false);
             }
@@ -334,16 +343,41 @@ public class World : MonoBehaviour
         {
             return 0; // bedrock, for now it's just stone
         }
-        int terrainHeight = Mathf.FloorToInt(biome.terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z),
-            0, biome.terrainScale)) + biome.solidGroundHeight; // vec3 in vid
+
+        // biome selection
+        int solidGroundHeight = 42;
+        float sumOfHeights = 0f;
+        int count = 0;
+        float strongestWeight = 0f;
+        int strongestBiomeIndex = 0;
+        for (int i = 0; i < biomes.Length; i++)
+        {
+            float weight = Noise.Get2DPerlin(new Vector2(pos.x, pos.z), biomes[i].offset, biomes[i].scale);
+            if (weight > strongestWeight)
+            {
+                strongestWeight = weight;
+                strongestBiomeIndex = i;
+            }
+            float height = biomes[i].terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biomes[i].terrainScale) * weight;
+            if (height > 0)
+            {
+                sumOfHeights += height;
+                count++;
+            }
+            
+        }
+        BiomeAttributes biome = biomes[strongestBiomeIndex];
+        sumOfHeights /= count;
+        int terrainHeight = Mathf.FloorToInt(sumOfHeights + solidGroundHeight);
+
         byte voxelValue = 0;
         if (yPos == terrainHeight)
         {
-            voxelValue = 3;
+            voxelValue = biome.surfaceBlock;
         }
         else if (yPos < terrainHeight && yPos > terrainHeight - 4)
         {
-            voxelValue = 6;
+            voxelValue = biome.subSurfaceBlock;
         }
         else if (yPos > terrainHeight)
         {
@@ -367,23 +401,26 @@ public class World : MonoBehaviour
             }
         }
         // tree pass
-        if (yPos == terrainHeight)
+        if (yPos == terrainHeight && biome.placeMajorFlora)
         {
-            if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biome.treeZoneScale) > biome.treeZoneThreshold)
+            if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biome.majorFloraZoneScale) > biome.majorFloraZoneThreshold)
             {
                 //voxelValue = 2;
-                if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biome.treePlacementScale) > biome.treePlacementThreshold)
+                if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biome.majorFloraPlacementScale) > biome.majorFloraPlacementThreshold)
                 {
                     //voxelValue = 8;
-                    modifications.Enqueue(Structure.MakeTree(pos, biome.minTreeHeight, biome.maxTreeHeight, false));
+                    modifications.Enqueue(Structure.GenerateMajorFlora(biome.majorFloraIndex, pos, biome.minHeight, biome.maxHeight, false));
                 }
             }
-            if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 3, biome.treeZoneScale) > biome.treeZoneThreshold)
+            if (biome.biomeName != "Desert")
             {
-                if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 3, biome.treePlacementScale) > biome.treePlacementThreshold)
+                if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 3, biome.majorFloraZoneScale) > biome.majorFloraZoneThreshold)
                 {
-                    // big trees
-                    modifications.Enqueue(Structure.MakeTree(pos, 13, 40, true));
+                    if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 3, biome.majorFloraPlacementScale) > biome.majorFloraPlacementThreshold)
+                    {
+                        // big trees
+                        modifications.Enqueue(Structure.GenerateMajorFlora(biome.majorFloraIndex, pos, 13, 40, true));
+                    }
                 }
             }
         }

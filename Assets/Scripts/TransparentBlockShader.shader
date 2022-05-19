@@ -1,10 +1,12 @@
-﻿Shader "Minecraft/Blocks"{
+﻿Shader "Minecraft/TransparentBlocks"{
 	Properties{
 		_MainTex ("Block Texture Atlas", 2D) = "white"{}
 	}
 		SubShader{
 			Tags{
-				"RenderType" = "Opaque"
+				"Queue" = "AlphaTest"
+				"IgnoreProjector" = "True"
+				"RenderType" = "TransparentCutout"
 			}
 			LOD 100
 			Lighting Off
@@ -42,7 +44,7 @@
 					shade *= i.color.a;
 					shade = clamp(1 - shade, minGlobalLightLevel, maxGlobalLightLevel);
 					
-					//clip(col.a - 1);
+					clip(col.a - 1);
 					col = lerp(col, float4(0, 0, 0, 1), shade); // controls day and night
 					return col;
 				}
