@@ -45,6 +45,7 @@ public class World : MonoBehaviour
     public GameObject cursorSlot;
     private void Start()
     {
+        Debug.Log("Generating new world using seed : " + VoxelData.seed);
         //string jsonExport = JsonUtility.ToJson(settings);
         //Debug.Log(jsonExport);
         //File.WriteAllText(Application.dataPath + "/settings.cfg", jsonExport);
@@ -53,7 +54,7 @@ public class World : MonoBehaviour
         settings = JsonUtility.FromJson<Settings>(jsonImport);
 
         // initialize random state
-        Random.InitState(settings.seed);
+        Random.InitState(VoxelData.seed);
         Shader.SetGlobalFloat("minGlobalLightLevel", VoxelData.minLightLevel);
         Shader.SetGlobalFloat("maxGlobalLightLevel", VoxelData.maxLightLevel);
         if (settings.enableThreading)
@@ -504,16 +505,13 @@ public class VoxelMod
 public class Settings
 {
     [Header("Game Data")]
-    public string version;
+    public string version = "0.0.1";
     
     [Header("Performance")]
-    public int viewDistance;
-    public bool enableThreading;
+    public int viewDistance = 8;
+    public bool enableThreading = true;
     
     [Header("Controls")]
     [Range(0.2f, 10f)]
-    public float mouseSensitivity;
-
-    [Header("World Gen")]
-    public int seed;
+    public float mouseSensitivity = 2f;
 }

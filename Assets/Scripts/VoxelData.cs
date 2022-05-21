@@ -10,6 +10,9 @@ public static class VoxelData {
     public static float minLightLevel = 0.15f;
     public static float maxLightLevel = 0.8f;
     public static float lightFalloff = 0.08f;
+
+    public static int seed;
+    
     public static int WorldSizeInVoxels
     {
         get { return WorldSizeInChunks * ChunkWidth; }
