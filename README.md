@@ -8,3 +8,10 @@ Credits to b3agz for the wonderful and in-depth videos. b3agz's final product, h
 
 ## Contributing
 All are welcome to contribute! We would especially love for any artists to join the team as well as game devs proficient in C#. 
+Please follow these guidelines for game devs:
+- Create a branch with a relevant name
+- Make your changes and open a PR when ready for code reviews
+- Be descriptive in each PR, add screenshots, make dev notes, etc.
+- Consider joining our discord: https://discord.gg/pHaefhbfmm
+
+Remember this is all for fun so don't worry too much about these rules, and most importantly have fun!
