@@ -81,7 +81,6 @@ public class Player : MonoBehaviour
 
         if (wasGrounded && !isGrounded && jumpComplete)
         {
-            Debug.Log(verticalMomentum);
             airborneTime = 0f;
             verticalMomentum = 0f;
             wasGrounded = false;
@@ -141,8 +140,8 @@ public class Player : MonoBehaviour
     private void CalculateVelocity()
     {
 
-
         //Note: Moving in the opposite direction of the current velocity must slow down the player
+        //Clipping to faces on collision is BAD: Solution is to immediately bonk player down to the ground
 
         if (!creativeMode)
         {
@@ -219,8 +218,6 @@ public class Player : MonoBehaviour
             }
         }
         
-
-
         //Collisions:
         if ((velocity.z > 0 && front) || (velocity.z < 0 && back))
         {
