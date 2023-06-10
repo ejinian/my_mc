@@ -5,16 +5,25 @@ using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
+    public bool jumpComplete = true;
+    public bool wasGrounded;
     public bool isGrounded;
     public bool isSprinting;
     private Transform cam;
     private World world;
 
-    public float walkSpeed = 3f;
-    public float gravity = -13f;
-    public float sprintSpeed = 6f;
-    public float jumpForce = 5.5f;
-    public float playerWidth = 0.15f;
+    private bool creativeMode = true;
+
+    private float airborneTime = 0f;
+    public float airborneMovementDuration = 1f;
+
+    public float forwardImpairmentMultiplier = 0.85f;
+    public float walkSpeed = 4.5f;
+    public float gravity = -28f;
+    public float sprintSpeed = 6.5f;
+    public float creativeSpeed = 10f;
+    public float jumpForce = 9f;
+    public float playerWidth = 0.4f;
     //public float boundsTolerance;
     private float horizontal;
     private float vertical;
@@ -35,8 +44,33 @@ public class Player : MonoBehaviour
     {
         cam = GameObject.Find("Main Camera").transform;
         world = GameObject.Find("World").GetComponent<World>();
+        PlacePlayerAtGround();
+        isGrounded = true;
+        wasGrounded = true;
+        jumpComplete = true;
+
+        //Setting highlight/place block and toolbar values
+        highlightBlock = GameObject.Find("HighlightBlock").transform;
+        placeBlock = GameObject.Find("PlaceHighlightBlock").transform;
+        toolbar = GameObject.Find("Toolbar").GetComponent<Toolbar>();
 
         world.inUI = false;
+    }
+
+    public void PlacePlayerAtGround()
+    {
+        float startY = GetHeightAtPosition(transform.position.x, transform.position.z);
+        transform.position = new Vector3(transform.position.x, startY, transform.position.z);
+    }
+
+    private float GetHeightAtPosition(float x, float z)
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(new Vector3(x, 100f, z), Vector3.down, out hit, 200f, LayerMask.GetMask("Terrain")))
+        {
+            return hit.point.y;
+        }
+        return 50f; // Default height if no terrain is found
     }
     private void FixedUpdate()
     {
@@ -44,6 +78,25 @@ public class Player : MonoBehaviour
     }
     private void Update()
     {
+
+        if (wasGrounded && !isGrounded && jumpComplete)
+        {
+            Debug.Log(verticalMomentum);
+            airborneTime = 0f;
+            verticalMomentum = 0f;
+            wasGrounded = false;
+        }
+
+        //Airborne timing:
+        if (isGrounded)
+        {
+            airborneTime = 0f;
+        }
+        else
+        {
+            airborneTime += Time.deltaTime;
+        }
+
         if (Input.GetKeyDown(KeyCode.E))
         {
             world.inUI = !world.inUI;
@@ -81,26 +134,94 @@ public class Player : MonoBehaviour
     void Jump()
     {
         verticalMomentum = jumpForce;
+        jumpComplete = false;
         isGrounded = false;
         jumpRequest = false;
     }
     private void CalculateVelocity()
     {
-        if (verticalMomentum > gravity)
+
+
+        //Note: Moving in the opposite direction of the current velocity must slow down the player
+
+        if (!creativeMode)
         {
-            verticalMomentum += Time.deltaTime * gravity;
-        }
-        if (isSprinting)
-        {
-            velocity = ((transform.forward * vertical) + (transform.right * horizontal))
-                * Time.deltaTime * sprintSpeed;
+            //Jumping
+            if (verticalMomentum > gravity)
+            {
+                verticalMomentum += Time.deltaTime * gravity;
+            }
+            //Airborne affecting movement
+            if (isGrounded)
+            {
+
+                // Horizontal Movement
+                if (isSprinting)
+                {
+                    Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+                    Vector3 forwardMovement = transform.forward * inputDirection.z * Time.deltaTime * sprintSpeed;
+                    Vector3 sideMovement = transform.right * inputDirection.x * Time.deltaTime * sprintSpeed;
+                    velocity = forwardMovement + sideMovement + (Vector3.up * vertical * Time.deltaTime) + (Vector3.up * verticalMomentum * Time.deltaTime);
+                }
+                else
+                {
+                    Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+                    Vector3 forwardMovement = transform.forward * inputDirection.z * Time.deltaTime * walkSpeed;
+                    Vector3 sideMovement = transform.right * inputDirection.x * Time.deltaTime * walkSpeed;
+                    velocity = forwardMovement + sideMovement + (Vector3.up * vertical * Time.deltaTime) + (Vector3.up * verticalMomentum * Time.deltaTime);
+                }
+                
+            }
+            else
+            {
+                // Airborne movement
+                Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
+                Vector3 forwardMovement;
+                Vector3 sideMovement;
+
+                float fallingSpeed = Mathf.Min(4f, airborneTime * 4f);
+                float impairment = Mathf.Min(0.15f, airborneTime * 0.15f);
+
+                // If the player is sprinting before jumping, they will continue to sprint in the air
+                if (isSprinting)
+                {
+                    forwardMovement = transform.forward * inputDirection.z * Time.deltaTime * sprintSpeed;
+                    sideMovement = transform.right * inputDirection.x * Time.deltaTime * sprintSpeed;
+                    velocity = forwardMovement + sideMovement + (Vector3.up * verticalMomentum * Time.deltaTime);
+                }
+                else
+                {
+                    forwardMovement = transform.forward * inputDirection.z * Time.deltaTime * walkSpeed;
+                    sideMovement = transform.right * inputDirection.x * Time.deltaTime * walkSpeed;
+                    velocity = forwardMovement + sideMovement + (Vector3.up * verticalMomentum * Time.deltaTime);
+                }
+
+                // Forward/Backward Impairment
+                velocity += transform.forward * inputDirection.z * Time.deltaTime * walkSpeed * impairment;
+
+                // Side-to-Side Impairment
+                velocity += transform.right * inputDirection.x * Time.deltaTime * walkSpeed * impairment;
+            }
         }
         else
         {
-            velocity = ((transform.forward * vertical) + (transform.right * horizontal))
-                * Time.deltaTime * walkSpeed;
+            velocity = transform.forward * vertical * Time.deltaTime * creativeSpeed * 2f;
+            velocity += transform.right * horizontal * Time.deltaTime * creativeSpeed * 2f;
+        
+            if (Input.GetButton("Jump"))
+            {
+                transform.position = new Vector3(transform.position.x, transform.position.y + 0.05f, transform.position.z);
+            }
+
+            if (Input.GetKey(KeyCode.LeftControl))
+            {
+                transform.position = new Vector3(transform.position.x, transform.position.y - 0.05f, transform.position.z);
+            }
         }
-        velocity += Vector3.up * verticalMomentum * Time.deltaTime;
+        
+
+
+        //Collisions:
         if ((velocity.z > 0 && front) || (velocity.z < 0 && back))
         {
             velocity.z = 0;
@@ -112,7 +233,8 @@ public class Player : MonoBehaviour
         if ((velocity.y < 0))
         {
             velocity.y = checkDownSpeed(velocity.y);
-        }else if (velocity.y > 0)
+        }
+        else if (velocity.y > 0)
         {
             velocity.y = checkUpSpeed(velocity.y);
         }
@@ -123,15 +245,22 @@ public class Player : MonoBehaviour
         {
             Application.Quit();
         }
-        horizontal = Input.GetAxis("Horizontal");
-        vertical = Input.GetAxis("Vertical");
+
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            creativeMode = !creativeMode;
+            verticalMomentum = 0f;
+        }
+
+        horizontal = Input.GetAxisRaw("Horizontal");
+        vertical = Input.GetAxisRaw("Vertical");
         mouseHorizontal = Input.GetAxis("Mouse X");
         mouseVertical = Input.GetAxis("Mouse Y");
-        if (Input.GetButtonDown("Sprint"))
+        if ((Input.GetButtonDown("Sprint") || Input.GetButton("Sprint")) && Input.GetButton("Vertical") && vertical > 0)
         {
             isSprinting = true;
-        }
-        if (Input.GetButtonUp("Sprint"))
+        } 
+        if (Input.GetButtonUp("Sprint") || !Input.GetButton("Vertical") || vertical <= 0) 
         {
             isSprinting = false;
         }
@@ -202,6 +331,8 @@ public class Player : MonoBehaviour
             {
                 // player is on ground
                 isGrounded = true;
+                wasGrounded = true;
+                jumpComplete = true;
                 return 0;
             }
             else
