@@ -69,10 +69,17 @@ public class Chunk
         {
             VoxelMod voxelMod = modifications.Dequeue();
             Vector3 pos = voxelMod.position -= position;
-            voxelMap[(int)pos.x, (int)pos.y, (int)pos.z].id = voxelMod.id;
+
+            // Check if the position is within the valid range
+            if (IsWithinChunkBounds(pos))
+            {
+                voxelMap[(int)pos.x, (int)pos.y, (int)pos.z].id = voxelMod.id;
+            }
         }
+
         ClearMeshData();
         CalculateLight();
+
         for (int y = 0; y < VoxelData.ChunkHeight; y += 1)
         {
             for (int x = 0; x < VoxelData.ChunkWidth; x += 1)
@@ -86,11 +93,21 @@ public class Chunk
                 }
             }
         }
+
         lock (world.chunksToDraw)
         {
             world.chunksToDraw.Enqueue(this);
         }
     }
+
+    // Check if the position is within the valid chunk bounds
+    private bool IsWithinChunkBounds(Vector3 pos)
+    {
+        return pos.x >= 0 && pos.x < VoxelData.ChunkWidth &&
+            pos.y >= 0 && pos.y < VoxelData.ChunkHeight &&
+            pos.z >= 0 && pos.z < VoxelData.ChunkWidth;
+    }
+
 
     void CalculateLight()
     {
@@ -249,78 +266,65 @@ public class Chunk
         int zCheck = Mathf.FloorToInt(pos.z);
         xCheck -= Mathf.FloorToInt(position.x);
         zCheck -= Mathf.FloorToInt(position.z);
-        return voxelMap[xCheck, yCheck, zCheck];
+        if (IsWithinChunkBounds(new Vector3(xCheck, yCheck, zCheck)))
+        {
+            return voxelMap[xCheck, yCheck, zCheck];
+        }
+
+        // Return a default VoxelState or handle the out-of-bounds case as appropriate for your code
+        return new VoxelState();
     }
     void UpdateMeshData(Vector3 pos)
     {
         int x = Mathf.FloorToInt(pos.x);
         int y = Mathf.FloorToInt(pos.y);
         int z = Mathf.FloorToInt(pos.z);
-        byte blockID = voxelMap[x, y, z].id;
-        //bool isTransparent = world.blocktypes[blockID].renderNeighborFaces;
-        for (int l = 0; l < 6; l += 1)
-        {
-            VoxelState neighbor = CheckVoxel(pos + VoxelData.faceChecks[l]);
-            if (neighbor != null && world.blocktypes[neighbor.id].renderNeighborFaces)
-            {
-                vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 0]]);
-                vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 1]]);
-                vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 2]]);
-                vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 3]]);
-
-                for (int i = 0; i < 4; i++)
+        if (IsWithinChunkBounds(new Vector3(x, y, z))){
+            byte blockID = voxelMap[x, y, z].id;
+            for (int l = 0; l < 6; l += 1){
+                VoxelState neighbor = CheckVoxel(pos + VoxelData.faceChecks[l]);
+                if (neighbor != null && world.blocktypes[neighbor.id].renderNeighborFaces)
                 {
-                    normals.Add(VoxelData.faceChecks[l]);
-                }
+                    vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 0]]);
+                    vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 1]]);
+                    vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 2]]);
+                    vertices.Add(pos + VoxelData.voxelVerts[VoxelData.voxelTris[l, 3]]);
 
-                //AddTexture(0); // 0 is the texture for stone
-                AddTexture(world.blocktypes[blockID].GetTextureID(l));
-                float lightLevel = neighbor.globalLightPercent;
-                //int yPos = (int)pos.y + 1;
-                //bool inShade = false;
-                //while (yPos < VoxelData.ChunkHeight)
-                //{
-                //    if (voxelMap[(int)pos.x, yPos, (int)pos.z].id != 0)
-                //    {
-                //        inShade = true;
-                //        break;
-                //    }
-                //    yPos++;
-                //}
-                //if (inShade)
-                //{
-                //    lightLevel = 0.5f;
-                //}
-                //else
-                //{
-                //    lightLevel = 0f;
-                //}
-                colors.Add(new Color(0, 0, 0, lightLevel));
-                colors.Add(new Color(0, 0, 0, lightLevel));
-                colors.Add(new Color(0, 0, 0, lightLevel));
-                colors.Add(new Color(0, 0, 0, lightLevel));
+                    for (int i = 0; i < 4; i++)
+                    {
+                        normals.Add(VoxelData.faceChecks[l]);
+                    }
 
-                if (!world.blocktypes[neighbor.id].renderNeighborFaces)
-                {
-                    triangles.Add(i);
-                    triangles.Add(i + 1);
-                    triangles.Add(i + 2);
-                    triangles.Add(i + 2);
-                    triangles.Add(i + 1);
-                    triangles.Add(i + 3);
+                    AddTexture(world.blocktypes[blockID].GetTextureID(l));
+                    float lightLevel = neighbor.globalLightPercent;
+                    colors.Add(new Color(0, 0, 0, lightLevel));
+                    colors.Add(new Color(0, 0, 0, lightLevel));
+                    colors.Add(new Color(0, 0, 0, lightLevel));
+                    colors.Add(new Color(0, 0, 0, lightLevel));
+
+                    if (!world.blocktypes[neighbor.id].renderNeighborFaces)
+                    {
+                        triangles.Add(i);
+                        triangles.Add(i + 1);
+                        triangles.Add(i + 2);
+                        triangles.Add(i + 2);
+                        triangles.Add(i + 1);
+                        triangles.Add(i + 3);
+                    }
+                    else
+                    {
+                        transparentTriangles.Add(i);
+                        transparentTriangles.Add(i + 1);
+                        transparentTriangles.Add(i + 2);
+                        transparentTriangles.Add(i + 2);
+                        transparentTriangles.Add(i + 1);
+                        transparentTriangles.Add(i + 3);
+                    }
+                    i += 4;
                 }
-                else
-                {
-                    transparentTriangles.Add(i);
-                    transparentTriangles.Add(i + 1);
-                    transparentTriangles.Add(i + 2);
-                    transparentTriangles.Add(i + 2);
-                    transparentTriangles.Add(i + 1);
-                    transparentTriangles.Add(i + 3);
-                }
-                i += 4;
             }
         }
+        
     }
 
     void AddTexture(int textureID)
