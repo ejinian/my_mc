@@ -45,6 +45,8 @@ public class World : MonoBehaviour
     public GameObject cursorSlot;
     private void Start()
     {
+        VoxelData.seed = Random.Range(0, 1000);
+        // VoxelData.seed = 317;
         Debug.Log("Generating new world using seed : " + VoxelData.seed);
         //string jsonExport = JsonUtility.ToJson(settings);
         //Debug.Log(jsonExport);
@@ -209,16 +211,29 @@ public class World : MonoBehaviour
             {
                 VoxelMod v = queue.Dequeue();
                 ChunkCoord c = GetChunkCoordFromVector3(v.position);
-                if (chunks[c.x, c.z] == null)
+
+                // Check if the chunk coordinates are within the valid range
+                if (IsWithinChunkBounds(c))
                 {
-                    chunks[c.x, c.z] = new Chunk(c, this);
-                    chunksToCreate.Add(c);
+                    if (chunks[c.x, c.z] == null)
+                    {
+                        chunks[c.x, c.z] = new Chunk(c, this);
+                        chunksToCreate.Add(c);
+                    }
+                    chunks[c.x, c.z].modifications.Enqueue(v);
                 }
-                chunks[c.x, c.z].modifications.Enqueue(v);
             }
         }
         applyingModifications = false;
     }
+
+    // Check if the chunk coordinates are within the valid bounds
+    private bool IsWithinChunkBounds(ChunkCoord coord)
+    {
+        return coord.x >= 0 && coord.x < VoxelData.WorldSizeInChunks &&
+               coord.z >= 0 && coord.z < VoxelData.WorldSizeInChunks;
+    }
+
 
     ChunkCoord GetChunkCoordFromVector3(Vector3 pos)
     {
@@ -346,11 +361,13 @@ public class World : MonoBehaviour
         }
 
         // biome selection
+        // biome selection
         int solidGroundHeight = 42;
         float sumOfHeights = 0f;
         int count = 0;
         float strongestWeight = 0f;
         int strongestBiomeIndex = 0;
+
         for (int i = 0; i < biomes.Length; i++)
         {
             float weight = Noise.Get2DPerlin(new Vector2(pos.x, pos.z), biomes[i].offset, biomes[i].scale);
@@ -359,17 +376,29 @@ public class World : MonoBehaviour
                 strongestWeight = weight;
                 strongestBiomeIndex = i;
             }
-            float height = biomes[i].terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biomes[i].terrainScale) * weight;
+            
+            float height;
+            
+            if (i == 3) // check if it's the mountains biome
+            {
+                height = biomes[i].terrainHeight * weight; // use only the weight for mountains biome
+            }
+            else
+            {
+                height = biomes[i].terrainHeight * Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biomes[i].terrainScale) * weight;
+            }
+            
             if (height > 0)
             {
                 sumOfHeights += height;
                 count++;
             }
-            
         }
+
         BiomeAttributes biome = biomes[strongestBiomeIndex];
         sumOfHeights /= count;
         int terrainHeight = Mathf.FloorToInt(sumOfHeights + solidGroundHeight);
+
 
         byte voxelValue = 0;
         if (yPos == terrainHeight)
@@ -413,7 +442,7 @@ public class World : MonoBehaviour
                     modifications.Enqueue(Structure.GenerateMajorFlora(biome.majorFloraIndex, pos, biome.minHeight, biome.maxHeight, false));
                 }
             }
-            if (biome.biomeName != "Desert")
+            if (biome.biomeName != "Desert" && biome.biomeName != "Mountains")
             {
                 if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 3, biome.majorFloraZoneScale) > biome.majorFloraZoneThreshold)
                 {
