@@ -5,6 +5,9 @@ using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
+    public float holdingSpaceTime = 0f;
+    public float interpolatedValue = 0;
+    public float maxPlayerSpeed = 25f;
     public bool jumpComplete = true;
     public bool wasGrounded;
     public bool isGrounded;
@@ -18,13 +21,13 @@ public class Player : MonoBehaviour
     public float airborneMovementDuration = 1f;
 
     public float forwardImpairmentMultiplier = 0.85f;
-    public float walkSpeed = 4.5f;
+    public float walkSpeed = 4.317f;
     public float gravity = -28f;
-    public float sprintSpeed = 6.5f;
+    public float sprintSpeed = 5.612f;
     public float creativeSpeed = 10f;
-    public float jumpForce = 9f;
-    public float playerWidth = 0.4f;
-    //public float boundsTolerance;
+    public float jumpForce = 8.4f;
+    public float playerWidth = 5/16f;
+    public float playerHeight = 1.8f;
     private float horizontal;
     private float vertical;
     private float mouseHorizontal;
@@ -54,7 +57,28 @@ public class Player : MonoBehaviour
         placeBlock = GameObject.Find("PlaceHighlightBlock").transform;
         toolbar = GameObject.Find("Toolbar").GetComponent<Toolbar>();
 
+        Mathf.Clamp(velocity.x, -maxPlayerSpeed, maxPlayerSpeed);
+        Mathf.Clamp(velocity.y, -maxPlayerSpeed, maxPlayerSpeed);
+        Mathf.Clamp(velocity.z, -maxPlayerSpeed, maxPlayerSpeed);
+
         world.inUI = false;
+    }
+
+    IEnumerator InterpolateOverTime(float startValue, float targetValue, float duration)
+    {
+        float elapsedTime = 0f; // The time elapsed since the interpolation started
+
+        while (elapsedTime < duration)
+        {
+            float t = elapsedTime / duration; // Calculate the normalized weight based on elapsed time and duration
+            interpolatedValue = Mathf.Lerp(startValue, targetValue, t); // Perform the interpolation
+
+            elapsedTime += Time.deltaTime; // Update the elapsed time using the frame time
+
+            yield return null; // Yield the interpolated value directly
+        }
+
+        interpolatedValue = targetValue; // Ensure the interpolation ends at the exact value        
     }
 
     public void PlacePlayerAtGround()
@@ -74,10 +98,19 @@ public class Player : MonoBehaviour
     }
     private void FixedUpdate()
     {
-        
     }
     private void Update()
     {
+
+        //Check if player is holding down spacebar without having released it
+        if (Input.GetKey(KeyCode.Space))
+        {
+            holdingSpaceTime += Time.deltaTime;
+        }
+        else if (Input.GetKeyUp(KeyCode.Space))
+        {
+            holdingSpaceTime = 0f;
+        }
 
         if (wasGrounded && !isGrounded && jumpComplete)
         {
@@ -103,33 +136,48 @@ public class Player : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape)) {
             world.inUI = false;
         }
+
+        CalculateVelocity();
+        CollisionDetection();
+
         if (!world.inUI)
         {
             GetPlayerInputs();
             placeCursorBlocks();
-            CalculateVelocity();
+            
             if (jumpRequest)
             {
                 Jump();
             }
             transform.Rotate(Vector3.up * mouseHorizontal * world.settings.mouseSensitivity);
-            cam.Rotate(Vector3.right * -mouseVertical * world.settings.mouseSensitivity);
+            RotateCamera();
             transform.Translate(velocity, Space.World);
         }
-        //if (!world.inUI) ZA WARUDO EFFECT
-        //{
-        //    GetPlayerInputs();
-        //    placeCursorBlocks();
-        //    CalculateVelocity();
-        //    if (jumpRequest)
-        //    {
-        //        Jump();
-        //    }
-        //    transform.Rotate(Vector3.up * mouseHorizontal);
-        //    cam.Rotate(Vector3.right * -mouseVertical);
-        //    transform.Translate(velocity, Space.World);
-        //}
     }
+
+    private void RotateCamera()
+    {
+        float rotationAmount = -mouseVertical * world.settings.mouseSensitivity;
+        float xRotation = cam.transform.localEulerAngles.x;
+
+        xRotation += rotationAmount;
+        xRotation = ClampRotation(xRotation);
+
+        cam.transform.localEulerAngles = new Vector3(xRotation, 0f, 0f);
+    }
+
+    private float ClampRotation(float rotation)
+    {
+        if (rotation > 180f)
+        {
+            rotation -= 360f;
+        }
+
+        rotation = Mathf.Clamp(rotation, -89f, 89f);
+        return rotation;
+    }
+
+
     void Jump()
     {
         verticalMomentum = jumpForce;
@@ -141,12 +189,11 @@ public class Player : MonoBehaviour
     {
 
         //Note: Moving in the opposite direction of the current velocity must slow down the player
-        //Clipping to faces on collision is BAD: Solution is to immediately bonk player down to the ground
 
         if (!creativeMode)
         {
-            //Jumping
-            if (verticalMomentum > gravity)
+            //Jumping or falling
+            if ((verticalMomentum > gravity) || !isGrounded)
             {
                 verticalMomentum += Time.deltaTime * gravity;
             }
@@ -160,14 +207,14 @@ public class Player : MonoBehaviour
                     Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
                     Vector3 forwardMovement = transform.forward * inputDirection.z * Time.deltaTime * sprintSpeed;
                     Vector3 sideMovement = transform.right * inputDirection.x * Time.deltaTime * sprintSpeed;
-                    velocity = forwardMovement + sideMovement + (Vector3.up * vertical * Time.deltaTime) + (Vector3.up * verticalMomentum * Time.deltaTime);
+                    velocity = forwardMovement + sideMovement;
                 }
                 else
                 {
                     Vector3 inputDirection = new Vector3(horizontal, 0f, vertical).normalized;
                     Vector3 forwardMovement = transform.forward * inputDirection.z * Time.deltaTime * walkSpeed;
                     Vector3 sideMovement = transform.right * inputDirection.x * Time.deltaTime * walkSpeed;
-                    velocity = forwardMovement + sideMovement + (Vector3.up * vertical * Time.deltaTime) + (Vector3.up * verticalMomentum * Time.deltaTime);
+                    velocity = forwardMovement + sideMovement;
                 }
                 
             }
@@ -217,25 +264,78 @@ public class Player : MonoBehaviour
                 transform.position = new Vector3(transform.position.x, transform.position.y - 0.05f, transform.position.z);
             }
         }
-        
-        //Collisions:
-        if ((velocity.z > 0 && front) || (velocity.z < 0 && back))
+    }
+
+    // Note: Not counting as grounded constantly when on the ground.
+    // Note: Might have to only count a collision if the player is not already colliding, i.e. if the player is colliding with a block directly in front of them then don't count the same black as a left or right collision.
+
+    private void CollisionDetection() {
+        if (((Collisions.frontDirectly(world, transform, playerWidth) || Collisions.frontLeft(world, transform, playerWidth) || Collisions.frontRight(world, transform, playerWidth) || Collisions.frontUp(world, transform, playerWidth) || Collisions.frontUpLeft(world, transform, playerWidth) || Collisions.frontUpRight(world, transform, playerWidth))))
         {
+            //v > 0 means player is moving forward
+            //Debug.Log("Front Collision z velocity: " + velocity.z);
             velocity.z = 0;
-        }
-        if ((velocity.x > 0 && right) || (velocity.x < 0 && left))
+            velocity.z = Mathf.Clamp(velocity.z, -maxPlayerSpeed, 0);
+        } else 
         {
+            velocity.z = Mathf.Clamp(velocity.z, -maxPlayerSpeed, maxPlayerSpeed);
+        }
+        if ((Collisions.backDirectly(world, transform, playerWidth) || Collisions.backLeft(world, transform, playerWidth) || Collisions.backRight(world, transform, playerWidth) || Collisions.backUp(world, transform, playerWidth) || Collisions.backUpLeft(world, transform, playerWidth) || Collisions.backUpRight(world, transform, playerWidth))) {
+            //v < 0 means player is moving backward
+            velocity.z = 0;
+            velocity.z = Mathf.Clamp(velocity.z, 0, maxPlayerSpeed);
+        } 
+        else 
+        {
+            velocity.z = Mathf.Clamp(velocity.z, -maxPlayerSpeed, maxPlayerSpeed);
+        }
+        if (((Collisions.rightDirectly(world, transform, playerWidth) || Collisions.rightForward(world, transform, playerWidth) || Collisions.rightBack(world, transform, playerWidth) || Collisions.rightUp(world, transform, playerWidth) || Collisions.rightUpForward(world, transform, playerWidth) || Collisions.rightUpBack(world, transform, playerWidth))))
+        {
+            //v > 0 means player is moving right
             velocity.x = 0;
-        }
-        if ((velocity.y < 0))
+            velocity.x = Mathf.Clamp(velocity.x, -maxPlayerSpeed, 0);
+        } 
+        else 
         {
-            velocity.y = checkDownSpeed(velocity.y);
+            velocity.x = Mathf.Clamp(velocity.x, -maxPlayerSpeed, maxPlayerSpeed);
         }
-        else if (velocity.y > 0)
+        if (((Collisions.leftDirectly(world, transform, playerWidth) || Collisions.leftForward(world, transform, playerWidth) || Collisions.leftBack(world, transform, playerWidth) || Collisions.leftUp(world, transform, playerWidth) || Collisions.leftUpForward(world, transform, playerWidth) || Collisions.leftUpBack(world, transform, playerWidth))))
         {
-            velocity.y = checkUpSpeed(velocity.y);
+            //v < 0 means player is moving left
+            velocity.x = 0;
+            velocity.x = Mathf.Clamp(velocity.x, 0, maxPlayerSpeed);
+        }
+        else 
+        {
+            velocity.x = Mathf.Clamp(velocity.x, -maxPlayerSpeed, maxPlayerSpeed);
+        } 
+        if (Collisions.downDirectly(world, transform, playerWidth, velocity) || Collisions.downForward(world, transform, playerWidth, velocity) || Collisions.downBack(world, transform, playerWidth, velocity) || Collisions.downRight(world, transform, playerWidth, velocity) || Collisions.downLeft(world, transform, playerWidth, velocity) || Collisions.downForwardRight(world, transform, playerWidth, velocity) || Collisions.downForwardLeft(world, transform, playerWidth, velocity) || Collisions.downBackRight(world, transform, playerWidth, velocity) || Collisions.downBackLeft(world, transform, playerWidth, velocity))
+        {
+            isGrounded = true;
+            wasGrounded = true;
+            jumpComplete = true;
+            velocity.y = 0;
+            velocity.y = Mathf.Clamp(velocity.y, 0, maxPlayerSpeed);
+            verticalMomentum = 0f;
+            Debug.Log("Grounded");
+        }
+        else
+        {
+            Debug.Log("Not Grounded"); //This appears when it should absolutely not appear
+            velocity.y = Mathf.Clamp(velocity.y, -maxPlayerSpeed, maxPlayerSpeed);
+            isGrounded = false;
+        }
+        if (Collisions.upDirectly(world, transform, playerWidth, playerHeight) || Collisions.upForward(world, transform, playerWidth, playerHeight) || Collisions.upBack(world, transform, playerWidth, playerHeight) || Collisions.upRight(world, transform, playerWidth, playerHeight) || Collisions.upLeft(world, transform, playerWidth, playerHeight) || Collisions.upForwardRight(world, transform, playerWidth, playerHeight) || Collisions.upForwardLeft(world, transform, playerWidth, playerHeight) || Collisions.upBackRight(world, transform, playerWidth, playerHeight) || Collisions.upBackLeft(world, transform, playerWidth, playerHeight)) {
+            verticalMomentum = 0f;
+            velocity.y = 0;
+            velocity.y = Mathf.Clamp(velocity.y, -maxPlayerSpeed, 0);
+        }
+        else 
+        {
+            velocity.y = Mathf.Clamp(velocity.y, -maxPlayerSpeed, maxPlayerSpeed);
         }
     }
+
     private void GetPlayerInputs()
     {
         if (Input.GetKeyDown(KeyCode.Escape))
@@ -261,7 +361,16 @@ public class Player : MonoBehaviour
         {
             isSprinting = false;
         }
-        if (isGrounded && Input.GetButton("Jump"))
+        if (isGrounded && holdingSpaceTime > 0.3f)
+        {
+            if (interpolatedValue == 0f) {
+                jumpRequest = true;
+                interpolatedValue = 1f;
+                StartCoroutine(InterpolateOverTime(1f, 0f, 0.5f));
+            }
+
+        }
+        else if (isGrounded && Input.GetButtonDown("Jump"))
         {
             jumpRequest = true;
         }
@@ -310,100 +419,12 @@ public class Player : MonoBehaviour
         highlightBlock.gameObject.SetActive(false);
         placeBlock.gameObject.SetActive(false);
     }
-    private float checkDownSpeed(float downSpeed)
-    {
-        if (world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + downSpeed,
-            transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + downSpeed,
-            transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + downSpeed,
-            transform.position.z + playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + downSpeed,
-            transform.position.z + playerWidth)))
-        {
-            // there is a solid voxel under the player
-            // check if player is on ground
-            if (world.CheckForVoxel(new Vector3(transform.position.x, transform.position.y + downSpeed,
-                transform.position.z)))
-            {
-                // player is on ground
-                isGrounded = true;
-                wasGrounded = true;
-                jumpComplete = true;
-                return 0;
-            }
-            else
-            {
-                // player is not on ground
-                isGrounded = false;
-                return downSpeed;
-            }
-            //isGrounded = true;
-            //return 0;
-        }
-        else
-        {
-            isGrounded = false;
-            return downSpeed;
-        }
-    }
-    private float checkUpSpeed(float upSpeed)
-    {
-        if (world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + upSpeed + 2f,
-            transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + upSpeed + 2f,
-            transform.position.z - playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x + playerWidth, transform.position.y + upSpeed + 2f,
-            transform.position.z + playerWidth)) ||
-            world.CheckForVoxel(new Vector3(transform.position.x - playerWidth, transform.position.y + upSpeed + 2f,
-            transform.position.z + playerWidth)))
-        {
-            return 0;
-        }
-        else
-        {
-            return upSpeed;
-        }
-    }
 
-    public bool front
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x, 
-                transform.position.y, transform.position.z + playerWidth)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x,
-                transform.position.y + 1f, transform.position.z + playerWidth)));
-        }
-    }
-    public bool back
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x,
-                transform.position.y, transform.position.z - playerWidth)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x,
-                transform.position.y + 1f, transform.position.z - playerWidth)));
-        }
-    }
-    public bool left
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x - playerWidth,
-                transform.position.y, transform.position.z)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x - playerWidth,
-                transform.position.y + 1f, transform.position.z)));
-        }
-    }
-    public bool right
-    {
-        get
-        {
-            return (world.CheckForVoxel(new Vector3(transform.position.x + playerWidth,
-                transform.position.y, transform.position.z)) ||
-                world.CheckForVoxel(new Vector3(transform.position.x + playerWidth,
-                transform.position.y + 1f, transform.position.z)));
-        }
-    }
+    // Note: Make it so that if the player is up against a wall and is trying to move forward, the movement is turned into a strafe depending on the
+    // direction the player is facing
+
+    // Note: Movement speed should be tied to angle of the player's view in relation to the block they are trying to move into. If the player is looking
+    // directly at the block, they should move at full speed sideways. If the player is looking at a block at a 45 degree angle, they should move at half speed
+    // sideways in the direction of the block.
+
 }
