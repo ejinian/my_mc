@@ -48,7 +48,7 @@ public class TitleMenu : MonoBehaviour
     {
         viewDstSlider.value = settings.viewDistance;
         UpdateViewDstSlider();
-        mouseSlider.value = settings.mouseSensitivity;
+        mouseSlider.value = settings.mouseSensitivity*10;
         UpdateMouseSlider();
         threadingToggle.isOn = settings.enableThreading;
         mainMenuObject.SetActive(false);
@@ -57,7 +57,7 @@ public class TitleMenu : MonoBehaviour
 
     public void LeaveSettings() {
         settings.viewDistance = (int)viewDstSlider.value;
-        settings.mouseSensitivity = mouseSlider.value;
+        settings.mouseSensitivity = mouseSlider.value/10;
         settings.enableThreading = threadingToggle.isOn;
 
         string jsonExport = JsonUtility.ToJson(settings);
@@ -77,6 +77,7 @@ public class TitleMenu : MonoBehaviour
     }
     public void UpdateMouseSlider()
     {
-        mouseTxtSlider.text = "Mouse Sensitivity: " + mouseSlider.value.ToString("F1");
+        float adjustedValue = mouseSlider.value/10;
+        mouseTxtSlider.text = "Mouse Sensitivity: " + adjustedValue.ToString("F1");
     }
 }
