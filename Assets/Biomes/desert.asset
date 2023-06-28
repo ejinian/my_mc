@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: desert
+  m_EditorClassIdentifier: Assembly-CSharp::Biome
+  biomeName: Desert
+  id: 112
+  surfaceBlock: {fileID: 1452323101049410322, guid: 7c5d1d1df849c794895b2e7f5d75ae61, type: 3}
+  subSurfaceBlock: {fileID: 4917564721772260124, guid: c650dcd778a403a43b2d1e12c871d9fa, type: 3}
+  stone: {fileID: 8588890653618315482, guid: 5011e7f00e0fc3a4c9db7cbacb5a02a1, type: 3}
+  bedrock: {fileID: 5331522391953805725, guid: a12fcbb3f718dbb40903a763156fb250, type: 3}
