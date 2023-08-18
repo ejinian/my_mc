@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bafabc9d8cf77c14c8abc1c22ca00c1e, type: 3}
+  m_Name: jagged_peaks
+  m_EditorClassIdentifier: 
+  biomeName: Jagged Peaks
+  id: 109
+  surfaceBlock: {fileID: 8588890653618315482, guid: 11eff5a5b0ad60f45a116445cb26086e, type: 3}
+  subSurfaceBlock: {fileID: 8588890653618315482, guid: 5011e7f00e0fc3a4c9db7cbacb5a02a1, type: 3}
+  stone: {fileID: 8588890653618315482, guid: 5011e7f00e0fc3a4c9db7cbacb5a02a1, type: 3}
+  bedrock: {fileID: 5331522391953805725, guid: a12fcbb3f718dbb40903a763156fb250, type: 3}
